@@ -1,0 +1,262 @@
+#include <stdio.h>
+#include <stdlib.h>
+typedef struct nodoCola {
+   int destino;
+   int cantidad_solicitada;
+   struct nodoCola *siguiente;
+} nodoCola;
+typedef struct nodoAVL {
+   int fecha_vencimiento;
+   int stock_total;
+   int nombre_producto;
+   int altura;
+   nodoCola *cabeza_pedidos;
+   nodoCola *cola_pedidos;
+   struct nodoAVL *izq;
+   struct nodoAVL *der;
+} nodoAVL;
+nodoAVL *raiz;
+int obtenerAltura(nodoAVL *nodo);
+int obtenerBalance(nodoAVL *nodo);
+int maximo(int a, int b);
+nodoAVL* rotacionDerecha(nodoAVL *y);
+nodoAVL* rotacionIzquierda(nodoAVL *x);
+nodoAVL* insertarAVL(nodoAVL *nodo, int fecha, int cantidad, int producto);
+nodoAVL* buscarFechaMasCercana(nodoAVL *nodo);
+nodoAVL* buscarNodo(nodoAVL *nodo, int fecha);
+void encolarPedido(nodoAVL *nodo, int destino, int cantidad);
+void mostrarPedidos(nodoCola *cabeza);
+void recepcionMercancia();
+void registrarPedido();
+void mostrarInventario(nodoAVL *nodo);
+void mostrarProducto(int producto);
+void mostrarDestino(int destino);
+int main(){
+   int opc;
+   do {
+       printf("\n============================================\n");
+       printf("     Sistema Logistico     \n");
+       printf("============================================\n");
+       printf("1. Recepcion de Mercancia\n");
+       printf("2. Registrar Pedido de Despacho\n");
+       printf("3. Mostrar Inventario Completo\n");
+       printf("4. Salir\n");
+       printf("============================================\n");
+       printf("escoge una opcion: ");
+       scanf("%d", &opc);
+       switch (opc) {
+           case 1:
+               recepcionMercancia();
+               break;
+           case 2:
+               registrarPedido();
+               break;
+           case 3:
+               if(raiz == NULL) {
+                   printf("\nNo hay mercancia en inventario.\n");
+               } else {
+                   printf("\n=== INVENTARIO (Inorden - Por Fecha) ===\n");
+                   mostrarInventario(raiz);
+               }
+               break;
+           case 4:
+               printf("\nGracias por usar el sistema!\n");
+               break;
+           default:
+               printf("\nOpcion no valida.\n");
+       }
+   } while(opc != 4);
+   return 0;
+}
+int obtenerAltura(nodoAVL *nodo) {
+   if(nodo == NULL) return 0;
+   return nodo->altura;
+}
+int maximo(int a, int b) {
+   if(a > b) return a;
+   return b;
+}
+int obtenerBalance(nodoAVL *nodo) {
+   if(nodo == NULL) return 0;
+   return obtenerAltura(nodo->izq) - obtenerAltura(nodo->der);
+}
+nodoAVL* rotacionDerecha(nodoAVL *y) {
+   nodoAVL *x = y->izq;
+   nodoAVL *T2 = x->der;
+   x->der = y;
+   y->izq = T2;
+   y->altura = maximo(obtenerAltura(y->izq), obtenerAltura(y->der)) + 1;
+   x->altura = maximo(obtenerAltura(x->izq), obtenerAltura(x->der)) + 1;
+   return x;
+}
+nodoAVL* rotacionIzquierda(nodoAVL *x) {
+   nodoAVL *y = x->der;
+   nodoAVL *T2 = y->izq;
+   y->izq = x;
+   x->der = T2;
+   x->altura = maximo(obtenerAltura(x->izq), obtenerAltura(x->der)) + 1;
+   y->altura = maximo(obtenerAltura(y->izq), obtenerAltura(y->der)) + 1;
+   return y;
+}
+nodoAVL* insertarAVL(nodoAVL *nodo, int fecha, int cantidad, int producto) {
+   if(nodo == NULL) {
+       nodoAVL *nuevo = (nodoAVL*) malloc(sizeof(nodoAVL));
+       nuevo->fecha_vencimiento = fecha;
+       nuevo->stock_total = cantidad;
+       nuevo->nombre_producto = producto;
+       nuevo->altura = 1;
+       nuevo->cabeza_pedidos = NULL;
+       nuevo->cola_pedidos = NULL;
+       nuevo->izq = NULL;
+       nuevo->der = NULL;
+       printf("\nMercancia registrada exitosamente!\n");
+       return nuevo;
+   }
+   if(fecha < nodo->fecha_vencimiento) {
+       nodo->izq = insertarAVL(nodo->izq, fecha, cantidad, producto);
+   } else if(fecha > nodo->fecha_vencimiento) {
+       nodo->der = insertarAVL(nodo->der, fecha, cantidad, producto);
+   } else {
+       printf("\nError: Ya existe mercancia con esa fecha. No se puede procesar.\n");
+       return nodo;
+   }
+   nodo->altura = 1 + maximo(obtenerAltura(nodo->izq), obtenerAltura(nodo->der));
+   int balance = obtenerBalance(nodo);
+   if(balance > 1 && fecha < nodo->izq->fecha_vencimiento) {
+       return rotacionDerecha(nodo);
+   }
+   if(balance < -1 && fecha > nodo->der->fecha_vencimiento) {
+       return rotacionIzquierda(nodo);
+   }
+   if(balance > 1 && fecha > nodo->izq->fecha_vencimiento) {
+       nodo->izq = rotacionIzquierda(nodo->izq);
+       return rotacionDerecha(nodo);
+   }
+   if(balance < -1 && fecha < nodo->der->fecha_vencimiento) {
+       nodo->der = rotacionDerecha(nodo->der);
+       return rotacionIzquierda(nodo);
+   }
+   return nodo;
+}
+nodoAVL* buscarFechaMasCercana(nodoAVL *nodo) {
+   if(nodo == NULL) return NULL;
+   while(nodo->izq != NULL) {
+       nodo = nodo->izq;
+   }
+   return nodo;
+}
+nodoAVL* buscarNodo(nodoAVL *nodo, int fecha) {
+   if(nodo == NULL) return NULL;
+   if(fecha == nodo->fecha_vencimiento) {
+       return nodo;
+   } else if(fecha < nodo->fecha_vencimiento) {
+       return buscarNodo(nodo->izq, fecha);
+   } else {
+       return buscarNodo(nodo->der, fecha);
+   }
+}
+void encolarPedido(nodoAVL *nodo, int destino, int cantidad) {
+   nodoCola *nuevo = (nodoCola*) malloc(sizeof(nodoCola));
+   nuevo->destino = destino;
+   nuevo->cantidad_solicitada = cantidad;
+   nuevo->siguiente = NULL;
+   if(nodo->cabeza_pedidos == NULL) {
+       nodo->cabeza_pedidos = nuevo;
+       nodo->cola_pedidos = nuevo;
+   } else {
+       nodo->cola_pedidos->siguiente = nuevo;
+       nodo->cola_pedidos = nuevo;
+   }
+}
+void recepcionMercancia() {
+   int fecha, cantidad, producto;
+   printf("\n=== RECEPCION DE MERCANCIA ===\n");
+   printf("Fecha de vencimiento (AAAA/MM/DD): ");
+   scanf("%d", &fecha);
+   printf("Cantidad (unidades): ");
+   scanf("%d", &cantidad);
+   printf("\n--- PRODUCTOS DISPONIBLES ---\n");
+   printf("1. Atun\n");
+   printf("2. Carne\n");
+   printf("3. Arroz\n");
+   printf("4. Leche\n");
+   printf("Seleccione producto: ");
+   scanf("%d", &producto);
+   raiz = insertarAVL(raiz, fecha, cantidad, producto);
+}
+void registrarPedido() {
+   if(raiz == NULL) {
+       printf("\nNo hay mercancia disponible en inventario.\n");
+       return;
+   }
+   nodoAVL *nodoProximo = buscarFechaMasCercana(raiz);
+   printf("\n=== REGISTRAR PEDIDO DE DESPACHO ===\n");
+   printf("Producto mas proximo a vencer:\n");
+   printf("Fecha: %d | Producto: ", nodoProximo->fecha_vencimiento);
+   mostrarProducto(nodoProximo->nombre_producto);
+   printf(" | Stock: %d\n", nodoProximo->stock_total);
+   int destino, cantidad;
+   printf("\n--- DESTINOS DISPONIBLES ---\n");
+   printf("1. Guapi\n");
+   printf("2. Timbiqui\n");
+   printf("3. Nuqui\n");
+   printf("4. Bahia Solano\n");
+   printf("Seleccione destino: ");
+   scanf("%d", &destino);
+   printf("Cantidad solicitada: ");
+   scanf("%d", &cantidad);
+   if(cantidad > nodoProximo->stock_total) {
+       printf("\nError: Stock insuficiente. Disponible: %d\n", nodoProximo->stock_total);
+       return;
+   }
+   encolarPedido(nodoProximo, destino, cantidad);
+   nodoProximo->stock_total -= cantidad;
+   printf("\nPedido registrado exitosamente!\n");
+   printf("Stock restante: %d\n", nodoProximo->stock_total);
+}
+void mostrarInventario(nodoAVL *nodo) {
+   if(nodo != NULL) {
+       mostrarInventario(nodo->izq);
+       printf("\nFecha: %d | Producto: ", nodo->fecha_vencimiento);
+       mostrarProducto(nodo->nombre_producto);
+       printf(" | Stock: %d\n", nodo->stock_total);
+       if(nodo->cabeza_pedidos != NULL) {
+           printf("  Pedidos pendientes:\n");
+           mostrarPedidos(nodo->cabeza_pedidos);
+       }
+       mostrarInventario(nodo->der);
+   }
+}
+void mostrarPedidos(nodoCola *cabeza) {
+   nodoCola *actual = cabeza;
+   int num = 1;
+   while(actual != NULL) {
+       printf("    %d. Destino: ", num);
+       mostrarDestino(actual->destino);
+       printf(" | Cantidad: %d\n", actual->cantidad_solicitada);
+       actual = actual->siguiente;
+       num++;
+   }
+}
+void mostrarProducto(int producto) {
+   if(producto == 1) {
+       printf("Atun");
+   } else if(producto == 2) {
+       printf("Carne");
+   } else if(producto == 3) {
+       printf("Arroz");
+   } else if(producto == 4) {
+       printf("Leche");
+   }
+}
+void mostrarDestino(int destino) {
+   if(destino == 1) {
+       printf("Guapi");
+   } else if(destino == 2) {
+       printf("Timbiqui");
+   } else if(destino == 3) {
+       printf("Nuqui");
+   } else if(destino == 4) {
+       printf("Bahia Solano");
+   }
+}
